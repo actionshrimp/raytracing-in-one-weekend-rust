@@ -1,6 +1,5 @@
 use rand::Rng;
 
-#[derive(Clone)]
 struct Vec3 {
     x: f64,
     y: f64,
