@@ -5,14 +5,6 @@ struct Vec {
 }
 
 impl Vec {
-    fn zero() -> Vec {
-        Vec {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        }
-    }
-
     fn new(x: f64, y: f64, z: f64) -> Vec {
         Vec { x: x, y: y, z: z }
     }
@@ -54,7 +46,6 @@ impl Vec {
     }
 }
 
-type Point = Vec;
 type Color = Vec;
 
 struct Ray<'a> {
