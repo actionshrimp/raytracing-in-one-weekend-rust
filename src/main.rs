@@ -68,7 +68,7 @@ fn ray_color(r: &Ray) -> Color {
 
 fn main() {
     let aspect_ratio: f64 = 16.0 / 9.0;
-    let image_width: u16 = 256;
+    let image_width: u16 = 400;
     let image_height: u16 = (image_width as f64 / aspect_ratio) as u16;
     let rgb_max: u8 = 255;
 
