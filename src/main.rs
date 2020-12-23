@@ -212,7 +212,7 @@ fn ray_color(
     if remaining_bounces <= 0 {
         Vec3::new(0., 0., 0.)
     } else {
-        match any_hit(world, r, 0., f64::MAX) {
+        match any_hit(world, r, 0.001, f64::MAX) {
             Some(hit) => {
                 let target = hit.p.add(&hit.normal).add(&Vec3::rand_unit_vector(rng));
                 let c = ray_color(
