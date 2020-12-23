@@ -1,6 +1,7 @@
 use pbr::ProgressBar;
 use rand::Rng;
 use std::io::stderr;
+use std::rc::Rc;
 
 struct Vec3 {
     x: f64,
@@ -31,7 +32,7 @@ impl Vec3 {
         Vec3 { x: x, y: y, z: z }
     }
 
-    fn mul(&self, t: f64) -> Vec3 {
+    fn scale(&self, t: f64) -> Vec3 {
         Vec3::new(self.x * t, self.y * t, self.z * t)
     }
 
@@ -43,8 +44,12 @@ impl Vec3 {
         Vec3::new(self.x - v.x, self.y - v.y, self.z - v.z)
     }
 
+    fn mul(&self, v: &Vec3) -> Vec3 {
+        Vec3::new(self.x * v.x, self.y * v.y, self.z * v.z)
+    }
+
     fn write(&self, rgb_range: u16, samples_per_pixel: i8) -> () {
-        let scaled = self.mul(1. / (samples_per_pixel as f64));
+        let scaled = self.scale(1. / (samples_per_pixel as f64));
 
         let rgbf = rgb_range as f64;
 
@@ -65,7 +70,7 @@ impl Vec3 {
 
     fn unit(&self) -> Vec3 {
         let l = self.length();
-        self.mul(1.0 / l)
+        self.scale(1.0 / l)
     }
 
     fn dot(&self, v: &Vec3) -> f64 {
@@ -84,6 +89,11 @@ impl Vec3 {
     fn rand_unit_vector(rng: &mut rand::prelude::ThreadRng) -> Vec3 {
         Vec3::rand_in_unit_sphere(rng).unit()
     }
+
+    fn near_zero(&self) -> bool {
+        let s: f64 = 1e-8;
+        self.x.abs() < s && self.y.abs() < s && self.z.abs() < s
+    }
 }
 
 type Point = Vec3;
@@ -96,8 +106,17 @@ struct Ray<'a> {
 
 impl<'a> Ray<'a> {
     fn at(&self, t: f64) -> Vec3 {
-        self.origin.add(&self.direction.mul(t))
+        self.origin.add(&self.direction.scale(t))
     }
+}
+
+trait Material {
+    fn scatter<'a>(
+        &self,
+        rng: &mut rand::prelude::ThreadRng,
+        pos: &'a Vec3,
+        normal: Vec3,
+    ) -> (&Color, Ray<'a>);
 }
 
 struct Hit {
@@ -105,6 +124,7 @@ struct Hit {
     normal: Vec3,
     t: f64,
     front_face: bool,
+    material: Rc<dyn Material>,
 }
 
 trait Hittable {
@@ -114,6 +134,37 @@ trait Hittable {
 struct Sphere {
     x: Point,
     r: f64,
+    material: Rc<dyn Material>,
+}
+
+struct Lambertian {
+    albedo: Color,
+}
+
+impl Lambertian {
+    fn new(albedo: Color) -> Lambertian {
+        Lambertian { albedo: albedo }
+    }
+}
+
+impl Material for Lambertian {
+    fn scatter<'a>(
+        &self,
+        rng: &mut rand::prelude::ThreadRng,
+        pos: &'a Vec3,
+        normal: Vec3,
+    ) -> (&Color, Ray<'a>) {
+        let d = normal.add(&Vec3::rand_unit_vector(rng));
+
+        let scatter_direction = if d.near_zero() { normal } else { d };
+
+        let scattered = Ray {
+            origin: &pos,
+            direction: scatter_direction,
+        };
+
+        (&self.albedo, scattered)
+    }
 }
 
 impl Hittable for Sphere {
@@ -132,7 +183,7 @@ impl Hittable for Sphere {
                 None
             } else {
                 let p = ray.at(root);
-                let outward_normal = p.sub(&self.x).mul(1. / self.r);
+                let outward_normal = p.sub(&self.x).scale(1. / self.r);
                 let front_face = ray.direction.dot(&outward_normal) < 0.;
                 Some(Hit {
                     t: root,
@@ -140,9 +191,10 @@ impl Hittable for Sphere {
                     normal: if front_face {
                         outward_normal
                     } else {
-                        outward_normal.mul(-1.)
+                        outward_normal.scale(-1.)
                     },
                     front_face: front_face,
+                    material: self.material.clone(),
                 })
             }
         }
@@ -169,23 +221,25 @@ fn any_hit(world: &World, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
     ret
 }
 
-struct Camera<'a> {
-    origin: &'a Vec3,
+struct Camera {
+    origin: Vec3,
     lower_left_corner: Point,
     horizontal: Vec3,
     vertical: Vec3,
 }
 
-impl<'a> Camera<'a> {
-    fn new(origin: &Vec3, width: f64, height: f64, focal_length: f64) -> Camera {
+impl Camera {
+    fn new(origin: Vec3, width: f64, height: f64, focal_length: f64) -> Camera {
         let horizontal = Vec3::new(width, 0., 0.);
         let vertical = Vec3::new(0., height, 0.);
+        let lower_left_corner = origin
+            .sub(&horizontal.scale(1. / 2.))
+            .sub(&vertical.scale(1. / 2.))
+            .sub(&Vec3::new(0., 0., focal_length));
+
         Camera {
-            origin: &origin,
-            lower_left_corner: origin
-                .sub(&horizontal.mul(1. / 2.))
-                .sub(&vertical.mul(1. / 2.))
-                .sub(&Vec3::new(0., 0., focal_length)),
+            origin: origin,
+            lower_left_corner: lower_left_corner,
             horizontal: horizontal,
             vertical: vertical,
         }
@@ -193,12 +247,12 @@ impl<'a> Camera<'a> {
 
     fn get_ray(&self, u: f64, v: f64) -> Ray {
         Ray {
-            origin: self.origin,
+            origin: &self.origin,
             direction: self
                 .lower_left_corner
-                .add(&self.horizontal.mul(u))
-                .add(&self.vertical.mul(v))
-                .sub(self.origin),
+                .add(&self.horizontal.scale(u))
+                .add(&self.vertical.scale(v))
+                .sub(&self.origin),
         }
     }
 }
@@ -214,23 +268,15 @@ fn ray_color(
     } else {
         match any_hit(world, r, 0.001, f64::MAX) {
             Some(hit) => {
-                let target = hit.p.add(&hit.normal).add(&Vec3::rand_unit_vector(rng));
-                let c = ray_color(
-                    rng,
-                    remaining_bounces - 1,
-                    world,
-                    &Ray {
-                        origin: &hit.p,
-                        direction: target.sub(&hit.p),
-                    },
-                );
-                c.mul(0.5)
+                let (attenuation, scattered) = hit.material.scatter(rng, &hit.p, hit.normal);
+                let c = ray_color(rng, remaining_bounces - 1, world, &scattered);
+                c.mul(attenuation)
             }
             None => {
                 let u = r.direction.unit();
                 let t = 0.5 * (u.y + 1.0);
-                let v1 = Vec3::new(1.0, 1.0, 1.0).mul(1.0 - t);
-                let v2 = Vec3::new(0.5, 0.7, 1.0).mul(t);
+                let v1 = Vec3::new(1.0, 1.0, 1.0).scale(1.0 - t);
+                let v2 = Vec3::new(0.5, 0.7, 1.0).scale(t);
 
                 v1.add(&v2)
             }
@@ -250,17 +296,20 @@ fn main() {
     let viewport_width = aspect_ratio * viewport_height;
     let focal_length = 1.0;
     let origin = Vec3::new(0.0, 0.0, 0.0);
-    let camera = Camera::new(&origin, viewport_width, viewport_height, focal_length);
+    let camera = Camera::new(origin, viewport_width, viewport_height, focal_length);
 
     //world
+    let material: Rc<dyn Material> = Rc::new(Lambertian::new(Vec3::new(0.5, 0.5, 0.5)));
     let world: Vec<Box<dyn Hittable>> = vec![
         Box::new(Sphere {
             x: Vec3::new(0.0, 0.0, -1.0),
             r: 0.5,
+            material: material.clone(),
         }),
         Box::new(Sphere {
             x: Vec3::new(0.0, -100.5, -1.0),
             r: 100.,
+            material: material.clone(),
         }),
     ];
 
