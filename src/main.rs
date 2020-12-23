@@ -116,6 +116,7 @@ trait Material {
         rng: &mut rand::prelude::ThreadRng,
         pos: &'a Vec3,
         normal: Vec3,
+        r: &Ray,
     ) -> (&Color, Ray<'a>);
 }
 
@@ -153,6 +154,7 @@ impl Material for Lambertian {
         rng: &mut rand::prelude::ThreadRng,
         pos: &'a Vec3,
         normal: Vec3,
+        _r: &Ray,
     ) -> (&Color, Ray<'a>) {
         let d = normal.add(&Vec3::rand_unit_vector(rng));
 
@@ -161,6 +163,37 @@ impl Material for Lambertian {
         let scattered = Ray {
             origin: &pos,
             direction: scatter_direction,
+        };
+
+        (&self.albedo, scattered)
+    }
+}
+
+struct Metal {
+    albedo: Color,
+}
+
+impl Metal {
+    fn new(albedo: Color) -> Metal {
+        Metal { albedo: albedo }
+    }
+}
+
+impl Material for Metal {
+    fn scatter<'a>(
+        &self,
+        _rng: &mut rand::prelude::ThreadRng,
+        pos: &'a Vec3,
+        normal: Vec3,
+        r: &Ray,
+    ) -> (&Color, Ray<'a>) {
+        let reflected = r
+            .direction
+            .sub(&normal.scale(2. * r.direction.dot(&normal)));
+
+        let scattered = Ray {
+            origin: &pos,
+            direction: reflected,
         };
 
         (&self.albedo, scattered)
@@ -268,7 +301,7 @@ fn ray_color(
     } else {
         match any_hit(world, r, 0.001, f64::MAX) {
             Some(hit) => {
-                let (attenuation, scattered) = hit.material.scatter(rng, &hit.p, hit.normal);
+                let (attenuation, scattered) = hit.material.scatter(rng, &hit.p, hit.normal, r);
                 let c = ray_color(rng, remaining_bounces - 1, world, &scattered);
                 c.mul(attenuation)
             }
@@ -299,17 +332,31 @@ fn main() {
     let camera = Camera::new(origin, viewport_width, viewport_height, focal_length);
 
     //world
-    let material: Rc<dyn Material> = Rc::new(Lambertian::new(Vec3::new(0.5, 0.5, 0.5)));
+    let material_ground: Rc<dyn Material> = Rc::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)));
+    let material_center: Rc<dyn Material> = Rc::new(Lambertian::new(Vec3::new(0.7, 0.3, 0.3)));
+    let material_left: Rc<dyn Material> = Rc::new(Metal::new(Vec3::new(0.8, 0.8, 0.8)));
+    let material_right: Rc<dyn Material> = Rc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2)));
+
     let world: Vec<Box<dyn Hittable>> = vec![
-        Box::new(Sphere {
-            x: Vec3::new(0.0, 0.0, -1.0),
-            r: 0.5,
-            material: material.clone(),
-        }),
         Box::new(Sphere {
             x: Vec3::new(0.0, -100.5, -1.0),
             r: 100.,
-            material: material.clone(),
+            material: material_ground.clone(),
+        }),
+        Box::new(Sphere {
+            x: Vec3::new(0.0, 0.0, -1.0),
+            r: 0.5,
+            material: material_center.clone(),
+        }),
+        Box::new(Sphere {
+            x: Vec3::new(-1.0, 0.0, -1.0),
+            r: 0.5,
+            material: material_left.clone(),
+        }),
+        Box::new(Sphere {
+            x: Vec3::new(1.0, 0.0, -1.0),
+            r: 0.5,
+            material: material_right.clone(),
         }),
     ];
 
