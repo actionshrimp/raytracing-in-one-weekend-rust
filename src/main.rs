@@ -45,6 +45,9 @@ impl Vec {
         self.mul(1.0 / l)
     }
 
+    fn dot(&self, v: &Vec) -> f64 {
+        self.x * v.x + self.y * v.y + self.z * v.z
+    }
 }
 
 
@@ -57,13 +60,25 @@ struct Ray<'a> {
     direction: &'a Vec
 }
 
-fn ray_color(r: &Ray) -> Color {
-    let u = r.direction.unit();
-    let t = 0.5 * (u.y + 1.0);
-    let v1 = Vec::new(1.0, 1.0, 1.0).mul(1.0 - t);
-    let v2 = Vec::new(0.5, 0.7, 1.0).mul(t);
+fn hit_sphere_at(center: &Vec, radius: f64, ray: &Ray) -> bool {
+    let oc = ray.origin.sub(center);
+    let a = ray.direction.dot(ray.direction);
+    let b = 2.0 * oc.dot(ray.direction);
+    let c = oc.dot(&oc) - radius * radius;
+    (b * b - 4.0 * a * c) > 0.0
+}
 
-    v1.add(&v2)
+fn ray_color(r: &Ray) -> Color {
+    if hit_sphere_at(&Vec::new(0.0, 0.0, -1.0), 0.5, r) {
+        Vec::new(1.0, 0.0, 0.0)
+    } else {
+        let u = r.direction.unit();
+        let t = 0.5 * (u.y + 1.0);
+        let v1 = Vec::new(1.0, 1.0, 1.0).mul(1.0 - t);
+        let v2 = Vec::new(0.5, 0.7, 1.0).mul(t);
+
+        v1.add(&v2)
+    }
 }
 
 fn main() {
