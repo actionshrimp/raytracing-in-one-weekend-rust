@@ -64,6 +64,7 @@ struct Hit {
     p: Point,
     normal: Vec,
     t: f64,
+    front_face: bool,
 }
 
 trait Hittable {
@@ -91,11 +92,17 @@ impl Hittable for Sphere {
                 None
             } else {
                 let p = ray.at(root);
-                let normal = p.sub(&self.x).mul(1. / self.r);
+                let outward_normal = p.sub(&self.x).mul(1. / self.r);
+                let front_face = ray.direction.dot(&outward_normal) < 0.;
                 Some(Hit {
                     t: root,
                     p: p,
-                    normal: normal,
+                    normal: if front_face {
+                        outward_normal
+                    } else {
+                        outward_normal.mul(-1.)
+                    },
+                    front_face: front_face,
                 })
             }
         }
