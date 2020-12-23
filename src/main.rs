@@ -80,6 +80,10 @@ impl Vec3 {
             test
         }
     }
+
+    fn rand_unit_vector(rng: &mut rand::prelude::ThreadRng) -> Vec3 {
+        Vec3::rand_in_unit_sphere(rng).unit()
+    }
 }
 
 type Point = Vec3;
@@ -210,7 +214,7 @@ fn ray_color(
     } else {
         match any_hit(world, r, 0., f64::MAX) {
             Some(hit) => {
-                let target = hit.p.add(&hit.normal).add(&Vec3::rand_in_unit_sphere(rng));
+                let target = hit.p.add(&hit.normal).add(&Vec3::rand_unit_vector(rng));
                 let c = ray_color(
                     rng,
                     remaining_bounces - 1,
