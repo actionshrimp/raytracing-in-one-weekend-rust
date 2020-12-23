@@ -68,7 +68,7 @@ struct Hit {
 }
 
 trait Hittable {
-    fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<Hit>;
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit>;
 }
 
 struct Sphere {
@@ -109,17 +109,29 @@ impl Hittable for Sphere {
     }
 }
 
-fn ray_color(r: &Ray) -> Color {
-    let sphere = Sphere {
-        x: Vec3::new(0.0, 0.0, -1.0),
-        r: 0.5,
-    };
+type World = Vec<Box<dyn Hittable>>;
 
-    match sphere.hit(r, 0., 1.) {
-        Some(hit) => {
-            let n = r.at(hit.t).sub(&Vec3::new(0.0, 0.0, -1.0)).unit();
-            Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul(0.5)
+fn any_hit(world: &World, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
+    let mut ret: Option<Hit> = None;
+
+    for x in world.iter() {
+        let hit = match &ret {
+            None => x.hit(ray, t_min, t_max),
+            Some(h) => x.hit(ray, t_min, h.t),
+        };
+
+        match hit {
+            None => (),
+            Some(h) => ret = Some(h),
         }
+    }
+
+    ret
+}
+
+fn ray_color(world: &World, r: &Ray) -> Color {
+    match any_hit(world, r, 0., f64::MAX) {
+        Some(hit) => hit.normal.add(&Vec3::new(1., 1., 1.)).mul(0.5),
         None => {
             let u = r.direction.unit();
             let t = 0.5 * (u.y + 1.0);
@@ -151,6 +163,18 @@ fn main() {
         .sub(&vertical.mul(1.0 / 2.0))
         .sub(&deep);
 
+    //world
+    let world: Vec<Box<dyn Hittable>> = vec![
+        Box::new(Sphere {
+            x: Vec3::new(0.0, 0.0, -1.0),
+            r: 0.5,
+        }),
+        Box::new(Sphere {
+            x: Vec3::new(0.0, -100.5, -1.0),
+            r: 100.,
+        }),
+    ];
+
     println!("P3");
     println!("{} {}", image_width, image_height);
     println!("{}", rgb_max);
@@ -168,7 +192,7 @@ fn main() {
                 origin: &origin,
                 direction: &direction,
             };
-            let pixel_color = ray_color(&r);
+            let pixel_color = ray_color(&world, &r);
             pixel_color.write()
         }
     }
