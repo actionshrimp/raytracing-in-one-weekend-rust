@@ -48,9 +48,9 @@ impl Vec3 {
 
         let rgbf = rgb_range as f64;
 
-        let ir = (rgbf * clamp(scaled.x, 0., 0.999)) as u8;
-        let ig = (rgbf * clamp(scaled.y, 0., 0.999)) as u8;
-        let ib = (rgbf * clamp(scaled.z, 0., 0.999)) as u8;
+        let ir = (rgbf * clamp(scaled.x.sqrt(), 0., 0.999)) as u8;
+        let ig = (rgbf * clamp(scaled.y.sqrt(), 0., 0.999)) as u8;
+        let ib = (rgbf * clamp(scaled.z.sqrt(), 0., 0.999)) as u8;
 
         println!("{} {} {}", ir, ig, ib)
     }
