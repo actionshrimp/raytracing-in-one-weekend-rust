@@ -1,24 +1,24 @@
-struct Vec {
+struct Vec3 {
     x: f64,
     y: f64,
     z: f64,
 }
 
-impl Vec {
-    fn new(x: f64, y: f64, z: f64) -> Vec {
-        Vec { x: x, y: y, z: z }
+impl Vec3 {
+    fn new(x: f64, y: f64, z: f64) -> Vec3 {
+        Vec3 { x: x, y: y, z: z }
     }
 
-    fn mul(&self, t: f64) -> Vec {
-        Vec::new(self.x * t, self.y * t, self.z * t)
+    fn mul(&self, t: f64) -> Vec3 {
+        Vec3::new(self.x * t, self.y * t, self.z * t)
     }
 
-    fn add(&self, v: &Vec) -> Vec {
-        Vec::new(self.x + v.x, self.y + v.y, self.z + v.z)
+    fn add(&self, v: &Vec3) -> Vec3 {
+        Vec3::new(self.x + v.x, self.y + v.y, self.z + v.z)
     }
 
-    fn sub(&self, v: &Vec) -> Vec {
-        Vec::new(self.x - v.x, self.y - v.y, self.z - v.z)
+    fn sub(&self, v: &Vec3) -> Vec3 {
+        Vec3::new(self.x - v.x, self.y - v.y, self.z - v.z)
     }
 
     fn write(&self) -> () {
@@ -36,33 +36,33 @@ impl Vec {
         self.length_squared().sqrt()
     }
 
-    fn unit(&self) -> Vec {
+    fn unit(&self) -> Vec3 {
         let l = self.length();
         self.mul(1.0 / l)
     }
 
-    fn dot(&self, v: &Vec) -> f64 {
+    fn dot(&self, v: &Vec3) -> f64 {
         self.x * v.x + self.y * v.y + self.z * v.z
     }
 }
 
-type Point = Vec;
-type Color = Vec;
+type Point = Vec3;
+type Color = Vec3;
 
 struct Ray<'a> {
     origin: &'a Point,
-    direction: &'a Vec,
+    direction: &'a Vec3,
 }
 
 impl<'a> Ray<'a> {
-    fn at(&'a self, t: f64) -> Vec {
+    fn at(&'a self, t: f64) -> Vec3 {
         self.origin.add(&self.direction.mul(t))
     }
 }
 
 struct Hit {
     p: Point,
-    normal: Vec,
+    normal: Vec3,
     t: f64,
     front_face: bool,
 }
@@ -111,20 +111,20 @@ impl Hittable for Sphere {
 
 fn ray_color(r: &Ray) -> Color {
     let sphere = Sphere {
-        x: Vec::new(0.0, 0.0, -1.0),
+        x: Vec3::new(0.0, 0.0, -1.0),
         r: 0.5,
     };
 
     match sphere.hit(r, 0., 1.) {
         Some(hit) => {
-            let n = r.at(hit.t).sub(&Vec::new(0.0, 0.0, -1.0)).unit();
-            Vec::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul(0.5)
+            let n = r.at(hit.t).sub(&Vec3::new(0.0, 0.0, -1.0)).unit();
+            Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul(0.5)
         }
         None => {
             let u = r.direction.unit();
             let t = 0.5 * (u.y + 1.0);
-            let v1 = Vec::new(1.0, 1.0, 1.0).mul(1.0 - t);
-            let v2 = Vec::new(0.5, 0.7, 1.0).mul(t);
+            let v1 = Vec3::new(1.0, 1.0, 1.0).mul(1.0 - t);
+            let v2 = Vec3::new(0.5, 0.7, 1.0).mul(t);
 
             v1.add(&v2)
         }
@@ -142,10 +142,10 @@ fn main() {
     let viewport_width = aspect_ratio * viewport_height;
     let focal_length = 1.0;
 
-    let origin = Vec::new(0.0, 0.0, 0.0);
-    let horizontal = Vec::new(viewport_width, 0.0, 0.0);
-    let vertical = Vec::new(0.0, viewport_height, 0.0);
-    let deep = Vec::new(0.0, 0.0, focal_length);
+    let origin = Vec3::new(0.0, 0.0, 0.0);
+    let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
+    let vertical = Vec3::new(0.0, viewport_height, 0.0);
+    let deep = Vec3::new(0.0, 0.0, focal_length);
     let lower_left_corner = origin
         .sub(&horizontal.mul(1.0 / 2.0))
         .sub(&vertical.mul(1.0 / 2.0))
