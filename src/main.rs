@@ -71,6 +71,15 @@ impl Vec3 {
     fn dot(&self, v: &Vec3) -> f64 {
         self.x * v.x + self.y * v.y + self.z * v.z
     }
+
+    fn rand_in_unit_sphere(rng: &mut rand::prelude::ThreadRng) -> Vec3 {
+        let test = Vec3::new(rng.gen(), rng.gen(), rng.gen());
+        if test.length_squared() >= 1. {
+            Vec3::rand_in_unit_sphere(rng)
+        } else {
+            test
+        }
+    }
 }
 
 type Point = Vec3;
@@ -190,16 +199,37 @@ impl<'a> Camera<'a> {
     }
 }
 
-fn ray_color(world: &World, r: &Ray) -> Color {
-    match any_hit(world, r, 0., f64::MAX) {
-        Some(hit) => hit.normal.add(&Vec3::new(1., 1., 1.)).mul(0.5),
-        None => {
-            let u = r.direction.unit();
-            let t = 0.5 * (u.y + 1.0);
-            let v1 = Vec3::new(1.0, 1.0, 1.0).mul(1.0 - t);
-            let v2 = Vec3::new(0.5, 0.7, 1.0).mul(t);
+fn ray_color(
+    rng: &mut rand::prelude::ThreadRng,
+    remaining_bounces: u8,
+    world: &World,
+    r: &Ray,
+) -> Color {
+    if remaining_bounces <= 0 {
+        Vec3::new(0., 0., 0.)
+    } else {
+        match any_hit(world, r, 0., f64::MAX) {
+            Some(hit) => {
+                let target = hit.p.add(&hit.normal).add(&Vec3::rand_in_unit_sphere(rng));
+                let c = ray_color(
+                    rng,
+                    remaining_bounces - 1,
+                    world,
+                    &Ray {
+                        origin: &hit.p,
+                        direction: target.sub(&hit.p),
+                    },
+                );
+                c.mul(0.5)
+            }
+            None => {
+                let u = r.direction.unit();
+                let t = 0.5 * (u.y + 1.0);
+                let v1 = Vec3::new(1.0, 1.0, 1.0).mul(1.0 - t);
+                let v2 = Vec3::new(0.5, 0.7, 1.0).mul(t);
 
-            v1.add(&v2)
+                v1.add(&v2)
+            }
         }
     }
 }
@@ -209,7 +239,7 @@ fn main() {
     let image_width: u16 = 400;
     let image_height: u16 = (image_width as f64 / aspect_ratio) as u16;
     let rgb_range = 256;
-    let samples_per_pixel = 4;
+    let samples_per_pixel = 100;
 
     //camera
     let viewport_height = 2.0;
@@ -238,6 +268,7 @@ fn main() {
     println!("{}", rgb_range - 1);
 
     let mut rng = rand::thread_rng();
+    let max_bounces = 50;
 
     for j in (0..image_height).rev() {
         for i in 0..image_width {
@@ -251,7 +282,7 @@ fn main() {
                 let v = (j as f64 + dv) / ((image_height - 1) as f64);
 
                 let ray = camera.get_ray(u, v);
-                pixel_color = pixel_color.add(&ray_color(&world, &ray));
+                pixel_color = pixel_color.add(&ray_color(&mut rng, max_bounces, &world, &ray));
             }
 
             pixel_color.write(rgb_range, samples_per_pixel);
