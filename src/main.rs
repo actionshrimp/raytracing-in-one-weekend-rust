@@ -1,10 +1,31 @@
+use rand::Rng;
+
+#[derive(Clone)]
 struct Vec3 {
     x: f64,
     y: f64,
     z: f64,
 }
 
+fn clamp(x: f64, min: f64, max: f64) -> f64 {
+    if x < min {
+        min
+    } else if x > max {
+        max
+    } else {
+        x
+    }
+}
+
 impl Vec3 {
+    fn zero() -> Vec3 {
+        Vec3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        }
+    }
+
     fn new(x: f64, y: f64, z: f64) -> Vec3 {
         Vec3 { x: x, y: y, z: z }
     }
@@ -21,10 +42,15 @@ impl Vec3 {
         Vec3::new(self.x - v.x, self.y - v.y, self.z - v.z)
     }
 
-    fn write(&self) -> () {
-        let ir = (255.999 * self.x) as i32;
-        let ig = (255.999 * self.y) as i32;
-        let ib = (255.999 * self.z) as i32;
+    fn write(&self, rgb_range: u16, samples_per_pixel: i8) -> () {
+        let scaled = self.mul(1. / (samples_per_pixel as f64));
+
+        let rgbf = rgb_range as f64;
+
+        let ir = (rgbf * clamp(scaled.x, 0., 0.999)) as u8;
+        let ig = (rgbf * clamp(scaled.y, 0., 0.999)) as u8;
+        let ib = (rgbf * clamp(scaled.z, 0., 0.999)) as u8;
+
         println!("{} {} {}", ir, ig, ib)
     }
 
@@ -51,11 +77,11 @@ type Color = Vec3;
 
 struct Ray<'a> {
     origin: &'a Point,
-    direction: &'a Vec3,
+    direction: Vec3,
 }
 
 impl<'a> Ray<'a> {
-    fn at(&'a self, t: f64) -> Vec3 {
+    fn at(&self, t: f64) -> Vec3 {
         self.origin.add(&self.direction.mul(t))
     }
 }
@@ -79,8 +105,8 @@ struct Sphere {
 impl Hittable for Sphere {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
         let oc = ray.origin.sub(&self.x);
-        let a = ray.direction.dot(ray.direction);
-        let half_b = oc.dot(ray.direction);
+        let a = ray.direction.dot(&ray.direction);
+        let half_b = oc.dot(&ray.direction);
         let c = oc.dot(&oc) - self.r * self.r;
         let discriminant = half_b * half_b - a * c;
         if discriminant < 0.0 {
@@ -129,6 +155,40 @@ fn any_hit(world: &World, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
     ret
 }
 
+struct Camera<'a> {
+    origin: &'a Vec3,
+    lower_left_corner: Point,
+    horizontal: Vec3,
+    vertical: Vec3,
+}
+
+impl<'a> Camera<'a> {
+    fn new(origin: &Vec3, width: f64, height: f64, focal_length: f64) -> Camera {
+        let horizontal = Vec3::new(width, 0., 0.);
+        let vertical = Vec3::new(0., height, 0.);
+        Camera {
+            origin: &origin,
+            lower_left_corner: origin
+                .sub(&horizontal.mul(1. / 2.))
+                .sub(&vertical.mul(1. / 2.))
+                .sub(&Vec3::new(0., 0., focal_length)),
+            horizontal: horizontal,
+            vertical: vertical,
+        }
+    }
+
+    fn get_ray(&self, u: f64, v: f64) -> Ray {
+        Ray {
+            origin: self.origin,
+            direction: self
+                .lower_left_corner
+                .add(&self.horizontal.mul(u))
+                .add(&self.vertical.mul(v))
+                .sub(self.origin),
+        }
+    }
+}
+
 fn ray_color(world: &World, r: &Ray) -> Color {
     match any_hit(world, r, 0., f64::MAX) {
         Some(hit) => hit.normal.add(&Vec3::new(1., 1., 1.)).mul(0.5),
@@ -147,21 +207,15 @@ fn main() {
     let aspect_ratio: f64 = 16.0 / 9.0;
     let image_width: u16 = 400;
     let image_height: u16 = (image_width as f64 / aspect_ratio) as u16;
-    let rgb_max: u8 = 255;
+    let rgb_range = 256;
+    let samples_per_pixel = 100;
 
     //camera
     let viewport_height = 2.0;
     let viewport_width = aspect_ratio * viewport_height;
     let focal_length = 1.0;
-
     let origin = Vec3::new(0.0, 0.0, 0.0);
-    let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, viewport_height, 0.0);
-    let deep = Vec3::new(0.0, 0.0, focal_length);
-    let lower_left_corner = origin
-        .sub(&horizontal.mul(1.0 / 2.0))
-        .sub(&vertical.mul(1.0 / 2.0))
-        .sub(&deep);
+    let camera = Camera::new(&origin, viewport_width, viewport_height, focal_length);
 
     //world
     let world: Vec<Box<dyn Hittable>> = vec![
@@ -177,23 +231,26 @@ fn main() {
 
     println!("P3");
     println!("{} {}", image_width, image_height);
-    println!("{}", rgb_max);
+    println!("{}", rgb_range - 1);
+
+    let mut rng = rand::thread_rng();
 
     for j in (0..image_height).rev() {
         for i in 0..image_width {
-            let u = (i as f64) / ((image_width - 1) as f64);
-            let v = (j as f64) / ((image_height - 1) as f64);
-            let direction = lower_left_corner
-                .add(&horizontal.mul(u))
-                .add(&vertical.mul(v))
-                .sub(&origin);
+            let mut pixel_color = Vec3::zero();
 
-            let r = Ray {
-                origin: &origin,
-                direction: &direction,
-            };
-            let pixel_color = ray_color(&world, &r);
-            pixel_color.write()
+            for _s in 0..samples_per_pixel {
+                let du: f64 = rng.gen();
+                let dv: f64 = rng.gen();
+
+                let u = (i as f64 + du) / ((image_width - 1) as f64);
+                let v = (j as f64 + dv) / ((image_height - 1) as f64);
+
+                let ray = camera.get_ray(u, v);
+                pixel_color = pixel_color.add(&ray_color(&world, &ray));
+            }
+
+            pixel_color.write(rgb_range, samples_per_pixel)
         }
     }
 }
