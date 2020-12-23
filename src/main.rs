@@ -1,19 +1,23 @@
 struct Vec {
     x: f64,
     y: f64,
-    z: f64
+    z: f64,
 }
 
 impl Vec {
     fn zero() -> Vec {
-        Vec { x: 0.0, y: 0.0, z: 0.0 }
+        Vec {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 
     fn new(x: f64, y: f64, z: f64) -> Vec {
         Vec { x: x, y: y, z: z }
     }
 
-    fn mul(&self, t : f64) -> Vec {
+    fn mul(&self, t: f64) -> Vec {
         Vec::new(self.x * t, self.y * t, self.z * t)
     }
 
@@ -50,14 +54,12 @@ impl Vec {
     }
 }
 
-
 type Point = Vec;
 type Color = Vec;
 
-
 struct Ray<'a> {
     origin: &'a Vec,
-    direction: &'a Vec
+    direction: &'a Vec,
 }
 
 impl<'a> Ray<'a> {
@@ -111,20 +113,28 @@ fn main() {
     let horizontal = Vec::new(viewport_width, 0.0, 0.0);
     let vertical = Vec::new(0.0, viewport_height, 0.0);
     let deep = Vec::new(0.0, 0.0, focal_length);
-    let lower_left_corner = origin.sub(&horizontal.mul(1.0 / 2.0)).sub(&vertical.mul(1.0 / 2.0)).sub(&deep);
+    let lower_left_corner = origin
+        .sub(&horizontal.mul(1.0 / 2.0))
+        .sub(&vertical.mul(1.0 / 2.0))
+        .sub(&deep);
 
     println!("P3");
     println!("{} {}", image_width, image_height);
     println!("{}", rgb_max);
 
-
     for j in (0..image_height).rev() {
         for i in 0..image_width {
             let u = (i as f64) / ((image_width - 1) as f64);
             let v = (j as f64) / ((image_height - 1) as f64);
-            let direction = lower_left_corner.add(&horizontal.mul(u)).add(&vertical.mul(v)).sub(&origin);
+            let direction = lower_left_corner
+                .add(&horizontal.mul(u))
+                .add(&vertical.mul(v))
+                .sub(&origin);
 
-            let r = Ray { origin: &origin, direction: &direction };
+            let r = Ray {
+                origin: &origin,
+                direction: &direction,
+            };
             let pixel_color = ray_color(&r);
             pixel_color.write()
         }
