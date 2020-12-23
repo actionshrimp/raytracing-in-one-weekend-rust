@@ -17,7 +17,7 @@ impl Vec {
         Vec::new(self.x * t, self.y * t, self.z * t)
     }
 
-    fn add(&self, v: Vec) -> Vec {
+    fn add(&self, v: &Vec) -> Vec {
         Vec::new(self.x + v.x, self.y + v.y, self.z + v.z)
     }
 
@@ -63,7 +63,7 @@ fn ray_color(r: &Ray) -> Color {
     let v1 = Vec::new(1.0, 1.0, 1.0).mul(1.0 - t);
     let v2 = Vec::new(0.5, 0.7, 1.0).mul(t);
 
-    v1.add(v2)
+    v1.add(&v2)
 }
 
 fn main() {
@@ -92,7 +92,7 @@ fn main() {
         for i in 0..image_width {
             let u = (i as f64) / ((image_width - 1) as f64);
             let v = (j as f64) / ((image_height - 1) as f64);
-            let direction = lower_left_corner.add(horizontal.mul(u)).add(vertical.mul(v)).sub(&origin);
+            let direction = lower_left_corner.add(&horizontal.mul(u)).add(&vertical.mul(v)).sub(&origin);
 
             let r = Ray { origin: &origin, direction: &direction };
             let pixel_color = ray_color(&r);
