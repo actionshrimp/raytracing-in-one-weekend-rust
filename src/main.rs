@@ -60,24 +60,39 @@ struct Ray<'a> {
     direction: &'a Vec
 }
 
-fn hit_sphere_at(center: &Vec, radius: f64, ray: &Ray) -> bool {
+impl<'a> Ray<'a> {
+    fn at(&'a self, t: f64) -> Vec {
+        self.origin.add(&self.direction.mul(t))
+    }
+}
+
+fn hit_sphere_point_at(center: &Vec, radius: f64, ray: &Ray) -> Option<f64> {
     let oc = ray.origin.sub(center);
     let a = ray.direction.dot(ray.direction);
     let b = 2.0 * oc.dot(ray.direction);
     let c = oc.dot(&oc) - radius * radius;
-    (b * b - 4.0 * a * c) > 0.0
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        None
+    } else {
+        Some((-b - discriminant.sqrt()) / (2.0 * a))
+    }
 }
 
 fn ray_color(r: &Ray) -> Color {
-    if hit_sphere_at(&Vec::new(0.0, 0.0, -1.0), 0.5, r) {
-        Vec::new(1.0, 0.0, 0.0)
-    } else {
-        let u = r.direction.unit();
-        let t = 0.5 * (u.y + 1.0);
-        let v1 = Vec::new(1.0, 1.0, 1.0).mul(1.0 - t);
-        let v2 = Vec::new(0.5, 0.7, 1.0).mul(t);
+    match hit_sphere_point_at(&Vec::new(0.0, 0.0, -1.0), 0.5, r) {
+        Some(t) => {
+            let n = r.at(t).sub(&Vec::new(0.0, 0.0, -1.0)).unit();
+            Vec::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul(0.5)
+        }
+        None => {
+            let u = r.direction.unit();
+            let t = 0.5 * (u.y + 1.0);
+            let v1 = Vec::new(1.0, 1.0, 1.0).mul(1.0 - t);
+            let v2 = Vec::new(0.5, 0.7, 1.0).mul(t);
 
-        v1.add(&v2)
+            v1.add(&v2)
+        }
     }
 }
 
