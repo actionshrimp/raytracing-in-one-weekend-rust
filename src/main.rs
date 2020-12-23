@@ -1,4 +1,6 @@
+use pbr::ProgressBar;
 use rand::Rng;
+use std::io::stderr;
 
 struct Vec3 {
     x: f64,
@@ -207,7 +209,7 @@ fn main() {
     let image_width: u16 = 400;
     let image_height: u16 = (image_width as f64 / aspect_ratio) as u16;
     let rgb_range = 256;
-    let samples_per_pixel = 100;
+    let samples_per_pixel = 4;
 
     //camera
     let viewport_height = 2.0;
@@ -227,6 +229,9 @@ fn main() {
             r: 100.,
         }),
     ];
+
+    let total_steps = image_height as u64;
+    let mut pb = ProgressBar::on(stderr(), total_steps);
 
     println!("P3");
     println!("{} {}", image_width, image_height);
@@ -249,7 +254,9 @@ fn main() {
                 pixel_color = pixel_color.add(&ray_color(&world, &ray));
             }
 
-            pixel_color.write(rgb_range, samples_per_pixel)
+            pixel_color.write(rgb_range, samples_per_pixel);
         }
+
+        pb.inc();
     }
 }
