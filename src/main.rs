@@ -46,10 +46,11 @@ impl Vec {
     }
 }
 
+type Point = Vec;
 type Color = Vec;
 
 struct Ray<'a> {
-    origin: &'a Vec,
+    origin: &'a Point,
     direction: &'a Vec,
 }
 
@@ -59,23 +60,57 @@ impl<'a> Ray<'a> {
     }
 }
 
-fn hit_sphere_point_at(center: &Vec, radius: f64, ray: &Ray) -> Option<f64> {
-    let oc = ray.origin.sub(center);
-    let a = ray.direction.dot(ray.direction);
-    let half_b = oc.dot(ray.direction);
-    let c = oc.dot(&oc) - radius * radius;
-    let discriminant = half_b * half_b - a * c;
-    if discriminant < 0.0 {
-        None
-    } else {
-        Some((-half_b - discriminant.sqrt()) / a)
+struct Hit {
+    p: Point,
+    normal: Vec,
+    t: f64,
+}
+
+trait Hittable {
+    fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<Hit>;
+}
+
+struct Sphere {
+    x: Point,
+    r: f64,
+}
+
+impl Hittable for Sphere {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
+        let oc = ray.origin.sub(&self.x);
+        let a = ray.direction.dot(ray.direction);
+        let half_b = oc.dot(ray.direction);
+        let c = oc.dot(&oc) - self.r * self.r;
+        let discriminant = half_b * half_b - a * c;
+        if discriminant < 0.0 {
+            None
+        } else {
+            let sqrtd = discriminant.sqrt();
+            let root = (-half_b - sqrtd) / a;
+            if root < t_min || t_max < root {
+                None
+            } else {
+                let p = ray.at(root);
+                let normal = p.sub(&self.x).mul(1. / self.r);
+                Some(Hit {
+                    t: root,
+                    p: p,
+                    normal: normal,
+                })
+            }
+        }
     }
 }
 
 fn ray_color(r: &Ray) -> Color {
-    match hit_sphere_point_at(&Vec::new(0.0, 0.0, -1.0), 0.5, r) {
-        Some(t) => {
-            let n = r.at(t).sub(&Vec::new(0.0, 0.0, -1.0)).unit();
+    let sphere = Sphere {
+        x: Vec::new(0.0, 0.0, -1.0),
+        r: 0.5,
+    };
+
+    match sphere.hit(r, 0., 1.) {
+        Some(hit) => {
+            let n = r.at(hit.t).sub(&Vec::new(0.0, 0.0, -1.0)).unit();
             Vec::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul(0.5)
         }
         None => {
