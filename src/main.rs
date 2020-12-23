@@ -71,13 +71,13 @@ impl<'a> Ray<'a> {
 fn hit_sphere_point_at(center: &Vec, radius: f64, ray: &Ray) -> Option<f64> {
     let oc = ray.origin.sub(center);
     let a = ray.direction.dot(ray.direction);
-    let b = 2.0 * oc.dot(ray.direction);
+    let half_b = oc.dot(ray.direction);
     let c = oc.dot(&oc) - radius * radius;
-    let discriminant = b * b - 4.0 * a * c;
+    let discriminant = half_b * half_b - a * c;
     if discriminant < 0.0 {
         None
     } else {
-        Some((-b - discriminant.sqrt()) / (2.0 * a))
+        Some((-half_b - discriminant.sqrt()) / a)
     }
 }
 
