@@ -1,7 +1,6 @@
 use pbr::ProgressBar;
 use rand::Rng;
 use std::io::stderr;
-use std::rc::Rc;
 
 struct Vec3 {
     x: f64,
@@ -120,22 +119,22 @@ trait Material {
     ) -> (&Color, Ray<'a>);
 }
 
-struct Hit {
+struct Hit<'a> {
     p: Point,
     normal: Vec3,
     t: f64,
     front_face: bool,
-    material: Rc<dyn Material>,
+    material: &'a (dyn Material + 'a),
 }
 
 trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit>;
 }
 
-struct Sphere {
+struct Sphere<'a> {
     x: Point,
     r: f64,
-    material: Rc<dyn Material>,
+    material: &'a (dyn Material + 'a),
 }
 
 struct Lambertian {
@@ -200,7 +199,7 @@ impl Material for Metal {
     }
 }
 
-impl Hittable for Sphere {
+impl<'a> Hittable for Sphere<'a> {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
         let oc = ray.origin.sub(&self.x);
         let a = ray.direction.dot(&ray.direction);
@@ -227,16 +226,16 @@ impl Hittable for Sphere {
                         outward_normal.scale(-1.)
                     },
                     front_face: front_face,
-                    material: self.material.clone(),
+                    material: self.material,
                 })
             }
         }
     }
 }
 
-type World = Vec<Box<dyn Hittable>>;
+type World<'a> = Vec<&'a (dyn Hittable + 'a)>;
 
-fn any_hit(world: &World, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
+fn any_hit<'a>(world: &World<'a>, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit<'a>> {
     let mut ret: Option<Hit> = None;
 
     for x in world.iter() {
@@ -290,10 +289,10 @@ impl Camera {
     }
 }
 
-fn ray_color(
+fn ray_color<'a>(
     rng: &mut rand::prelude::ThreadRng,
     remaining_bounces: u8,
-    world: &World,
+    world: &World<'a>,
     r: &Ray,
 ) -> Color {
     if remaining_bounces <= 0 {
@@ -332,33 +331,36 @@ fn main() {
     let camera = Camera::new(origin, viewport_width, viewport_height, focal_length);
 
     //world
-    let material_ground: Rc<dyn Material> = Rc::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)));
-    let material_center: Rc<dyn Material> = Rc::new(Lambertian::new(Vec3::new(0.7, 0.3, 0.3)));
-    let material_left: Rc<dyn Material> = Rc::new(Metal::new(Vec3::new(0.8, 0.8, 0.8)));
-    let material_right: Rc<dyn Material> = Rc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2)));
+    let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
+    let material_center = Lambertian::new(Vec3::new(0.7, 0.3, 0.3));
+    let material_left = Metal::new(Vec3::new(0.8, 0.8, 0.8));
+    let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2));
 
-    let world: Vec<Box<dyn Hittable>> = vec![
-        Box::new(Sphere {
-            x: Vec3::new(0.0, -100.5, -1.0),
-            r: 100.,
-            material: material_ground.clone(),
-        }),
-        Box::new(Sphere {
-            x: Vec3::new(0.0, 0.0, -1.0),
-            r: 0.5,
-            material: material_center.clone(),
-        }),
-        Box::new(Sphere {
-            x: Vec3::new(-1.0, 0.0, -1.0),
-            r: 0.5,
-            material: material_left.clone(),
-        }),
-        Box::new(Sphere {
-            x: Vec3::new(1.0, 0.0, -1.0),
-            r: 0.5,
-            material: material_right.clone(),
-        }),
-    ];
+    let s1 = Sphere {
+        x: Vec3::new(0.0, -100.5, -1.0),
+        r: 100.,
+        material: &material_ground,
+    };
+
+    let s2 = Sphere {
+        x: Vec3::new(0.0, 0.0, -1.0),
+        r: 0.5,
+        material: &material_center,
+    };
+
+    let s3 = Sphere {
+        x: Vec3::new(-1.0, 0.0, -1.0),
+        r: 0.5,
+        material: &material_left,
+    };
+
+    let s4 = Sphere {
+        x: Vec3::new(1.0, 0.0, -1.0),
+        r: 0.5,
+        material: &material_right,
+    };
+
+    let world: World = vec![&s1, &s2, &s3, &s4];
 
     let total_steps = image_height as u64;
     let mut pb = ProgressBar::on(stderr(), total_steps);
