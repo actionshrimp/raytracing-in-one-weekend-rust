@@ -93,6 +93,10 @@ impl Vec3 {
         let s: f64 = 1e-8;
         self.x.abs() < s && self.y.abs() < s && self.z.abs() < s
     }
+
+    fn reflect(&self, normal: &Vec3) -> Vec3 {
+        self.sub(&normal.scale(2. * self.dot(normal)))
+    }
 }
 
 type Point = Vec3;
@@ -199,9 +203,7 @@ impl Material for Metal {
         normal: Vec3,
         r: &Ray,
     ) -> (&Color, Ray<'a>) {
-        let reflected = r
-            .direction
-            .sub(&normal.scale(2. * r.direction.dot(&normal)));
+        let reflected = r.direction.reflect(&normal);
 
         let scattered = Ray {
             origin: &pos,
