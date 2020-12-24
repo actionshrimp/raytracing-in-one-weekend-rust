@@ -170,18 +170,31 @@ impl Material for Lambertian {
 
 struct Metal {
     albedo: Color,
+    fuzz: f64,
 }
 
 impl Metal {
-    fn new(albedo: Color) -> Metal {
-        Metal { albedo: albedo }
+    fn new(albedo: Color, fuzz: f64) -> Metal {
+        let fuzz = if fuzz < 1. {
+            if fuzz < 0. {
+                0.
+            } else {
+                fuzz
+            }
+        } else {
+            1.
+        };
+        Metal {
+            albedo: albedo,
+            fuzz: fuzz,
+        }
     }
 }
 
 impl Material for Metal {
     fn scatter<'a>(
         &self,
-        _rng: &mut rand::prelude::ThreadRng,
+        rng: &mut rand::prelude::ThreadRng,
         pos: &'a Vec3,
         normal: Vec3,
         r: &Ray,
@@ -192,7 +205,7 @@ impl Material for Metal {
 
         let scattered = Ray {
             origin: &pos,
-            direction: reflected,
+            direction: reflected.add(&Vec3::rand_in_unit_sphere(rng).scale(self.fuzz)),
         };
 
         (&self.albedo, scattered)
@@ -333,8 +346,8 @@ fn main() {
     //world
     let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
     let material_center = Lambertian::new(Vec3::new(0.7, 0.3, 0.3));
-    let material_left = Metal::new(Vec3::new(0.8, 0.8, 0.8));
-    let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2));
+    let material_left = Metal::new(Vec3::new(0.8, 0.8, 0.8), 0.3);
+    let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2), 1.0);
 
     let s1 = Sphere {
         x: Vec3::new(0.0, -100.5, -1.0),
