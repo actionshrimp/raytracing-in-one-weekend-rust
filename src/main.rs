@@ -123,24 +123,6 @@ trait Material {
     ) -> (&Color, Ray<'a>);
 }
 
-struct Hit<'a> {
-    p: Point,
-    normal: Vec3,
-    t: f64,
-    front_face: bool,
-    material: &'a (dyn Material + 'a),
-}
-
-trait Hittable {
-    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit>;
-}
-
-struct Sphere<'a> {
-    x: Point,
-    r: f64,
-    material: &'a (dyn Material + 'a),
-}
-
 struct Lambertian {
     albedo: Color,
 }
@@ -212,6 +194,24 @@ impl Material for Metal {
 
         (&self.albedo, scattered)
     }
+}
+
+struct Hit<'a> {
+    p: Point,
+    normal: Vec3,
+    t: f64,
+    front_face: bool,
+    material: &'a (dyn Material + 'a),
+}
+
+trait Hittable {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit>;
+}
+
+struct Sphere<'a> {
+    x: Point,
+    r: f64,
+    material: &'a (dyn Material + 'a),
 }
 
 impl<'a> Hittable for Sphere<'a> {
