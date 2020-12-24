@@ -97,6 +97,14 @@ impl Vec3 {
     fn reflect(&self, normal: &Vec3) -> Vec3 {
         self.sub(&normal.scale(2. * self.dot(normal)))
     }
+
+    fn refract(&self, normal: &Vec3, eta_before: f64, eta_after: f64) -> Vec3 {
+        let eta_ratio = eta_before / eta_after;
+        let cos_theta = f64::min(self.scale(-1.).dot(&normal), 1.);
+        let r_out_perp = self.add(&normal.scale(cos_theta)).scale(eta_ratio);
+        let r_out_parallel = normal.scale((-r_out_perp.length_squared()).abs().sqrt());
+        r_out_perp.add(&r_out_parallel)
+    }
 }
 
 type Point = Vec3;
