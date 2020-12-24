@@ -1,10 +1,14 @@
-# README
+# Raytracer
+
+Following [Ray Tracing In One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html), transposing to rust.
+
+## Running it
 
 Outputs PPM format by default:
 
-    cargo run > out.ppm
+    cargo run --release > out.ppm
 
-For png:
+For png output (easier to actually view!):
 
     apt install netpbm
-    cargo run | pnmtopng > test.png
+    cargo run --release | pnmtopng > test.png
