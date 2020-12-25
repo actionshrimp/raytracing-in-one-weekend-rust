@@ -99,10 +99,13 @@ impl Vec3 {
     }
 
     fn refract(&self, normal: &Vec3, eta_before: f64, eta_after: f64) -> Vec3 {
+        let unit = self.unit();
         let eta_ratio = eta_before / eta_after;
-        let cos_theta = f64::min(self.scale(-1.).dot(&normal), 1.);
-        let r_out_perp = self.add(&normal.scale(cos_theta)).scale(eta_ratio);
-        let r_out_parallel = normal.scale((-r_out_perp.length_squared()).abs().sqrt());
+        let cos_theta = f64::min(unit.scale(-1.).dot(&normal), 1.);
+        let r_out_perp = unit.add(&normal.scale(cos_theta)).scale(eta_ratio);
+        let r_out_parallel = normal
+            .scale((1. - r_out_perp.length_squared()).abs().sqrt())
+            .scale(-1.);
         r_out_perp.add(&r_out_parallel)
     }
 }
@@ -127,6 +130,7 @@ trait Material {
         rng: &mut rand::prelude::ThreadRng,
         pos: &'a Vec3,
         normal: Vec3,
+        front_face: bool,
         r: &Ray,
     ) -> (&Color, Ray<'a>);
 }
@@ -147,6 +151,7 @@ impl Material for Lambertian {
         rng: &mut rand::prelude::ThreadRng,
         pos: &'a Vec3,
         normal: Vec3,
+        _front_face: bool,
         _r: &Ray,
     ) -> (&Color, Ray<'a>) {
         let d = normal.add(&Vec3::rand_unit_vector(rng));
@@ -191,6 +196,7 @@ impl Material for Metal {
         rng: &mut rand::prelude::ThreadRng,
         pos: &'a Vec3,
         normal: Vec3,
+        _front_face: bool,
         r: &Ray,
     ) -> (&Color, Ray<'a>) {
         let reflected = r.direction.reflect(&normal);
@@ -198,6 +204,44 @@ impl Material for Metal {
         let scattered = Ray {
             origin: &pos,
             direction: reflected.add(&Vec3::rand_in_unit_sphere(rng).scale(self.fuzz)),
+        };
+
+        (&self.albedo, scattered)
+    }
+}
+
+struct Dielectric {
+    refractive_index: f64,
+    albedo: Vec3,
+}
+
+impl Dielectric {
+    fn new(refractive_index: f64) -> Dielectric {
+        Dielectric {
+            refractive_index: refractive_index,
+            albedo: Vec3::new(1., 1., 1.),
+        }
+    }
+}
+
+impl Material for Dielectric {
+    fn scatter<'a>(
+        &self,
+        _rng: &mut rand::prelude::ThreadRng,
+        pos: &'a Vec3,
+        normal: Vec3,
+        front_face: bool,
+        r: &Ray,
+    ) -> (&Color, Ray<'a>) {
+        let (r_in, r_out) = if front_face {
+            (1., self.refractive_index)
+        } else {
+            (self.refractive_index, 1.)
+        };
+
+        let scattered = Ray {
+            origin: &pos,
+            direction: r.direction.refract(&normal, r_in, r_out),
         };
 
         (&self.albedo, scattered)
@@ -238,7 +282,7 @@ impl<'a> Hittable for Sphere<'a> {
                 None
             } else {
                 let p = ray.at(root);
-                let outward_normal = p.sub(&self.x).scale(1. / self.r);
+                let outward_normal = (p.sub(&self.x)).scale(1. / self.r);
                 let front_face = ray.direction.dot(&outward_normal) < 0.;
                 Some(Hit {
                     t: root,
@@ -323,7 +367,9 @@ fn ray_color<'a>(
     } else {
         match any_hit(world, r, 0.001, f64::MAX) {
             Some(hit) => {
-                let (attenuation, scattered) = hit.material.scatter(rng, &hit.p, hit.normal, r);
+                let (attenuation, scattered) =
+                    hit.material
+                        .scatter(rng, &hit.p, hit.normal, hit.front_face, r);
                 let c = ray_color(rng, remaining_bounces - 1, world, &scattered);
                 c.mul(attenuation)
             }
@@ -355,8 +401,8 @@ fn main() {
 
     //world
     let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
-    let material_center = Lambertian::new(Vec3::new(0.7, 0.3, 0.3));
-    let material_left = Metal::new(Vec3::new(0.8, 0.8, 0.8), 0.3);
+    let material_center = Dielectric::new(1.5);
+    let material_left = Dielectric::new(1.5);
     let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2), 1.0);
 
     let s1 = Sphere {
