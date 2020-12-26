@@ -2,6 +2,7 @@ use pbr::ProgressBar;
 use rand::Rng;
 use std::io::stderr;
 
+#[derive(Clone)]
 struct Vec3 {
     x: f64,
     y: f64,
@@ -113,12 +114,12 @@ impl Vec3 {
 type Point = Vec3;
 type Color = Vec3;
 
-struct Ray<'a> {
-    origin: &'a Point,
+struct Ray {
+    origin: Point,
     direction: Vec3,
 }
 
-impl<'a> Ray<'a> {
+impl Ray {
     fn at(&self, t: f64) -> Vec3 {
         self.origin.add(&self.direction.scale(t))
     }
@@ -128,11 +129,11 @@ trait Material {
     fn scatter<'a>(
         &self,
         rng: &mut rand::prelude::ThreadRng,
-        pos: &'a Vec3,
+        pos: Vec3,
         normal: Vec3,
         front_face: bool,
         r: &Ray,
-    ) -> (&Color, Ray<'a>);
+    ) -> (&Color, Ray);
 }
 
 struct Lambertian {
@@ -149,17 +150,17 @@ impl Material for Lambertian {
     fn scatter<'a>(
         &self,
         rng: &mut rand::prelude::ThreadRng,
-        pos: &'a Vec3,
+        pos: Vec3,
         normal: Vec3,
         _front_face: bool,
         _r: &Ray,
-    ) -> (&Color, Ray<'a>) {
+    ) -> (&Color, Ray) {
         let d = normal.add(&Vec3::rand_unit_vector(rng));
 
         let scatter_direction = if d.near_zero() { normal } else { d };
 
         let scattered = Ray {
-            origin: &pos,
+            origin: pos,
             direction: scatter_direction,
         };
 
@@ -194,15 +195,15 @@ impl Material for Metal {
     fn scatter<'a>(
         &self,
         rng: &mut rand::prelude::ThreadRng,
-        pos: &'a Vec3,
+        pos: Vec3,
         normal: Vec3,
         _front_face: bool,
         r: &Ray,
-    ) -> (&Color, Ray<'a>) {
+    ) -> (&Color, Ray) {
         let reflected = r.direction.reflect(&normal);
 
         let scattered = Ray {
-            origin: &pos,
+            origin: pos,
             direction: reflected.add(&Vec3::rand_in_unit_sphere(rng).scale(self.fuzz)),
         };
 
@@ -228,20 +229,20 @@ impl Material for Dielectric {
     fn scatter<'a>(
         &self,
         _rng: &mut rand::prelude::ThreadRng,
-        pos: &'a Vec3,
+        pos: Vec3,
         normal: Vec3,
         front_face: bool,
         r: &Ray,
-    ) -> (&Color, Ray<'a>) {
         let (r_in, r_out) = if front_face {
             (1., self.refractive_index)
+    ) -> (&Color, Ray) {
         } else {
             (self.refractive_index, 1.)
         };
 
         let scattered = Ray {
-            origin: &pos,
             direction: r.direction.refract(&normal, r_in, r_out),
+            origin: pos,
         };
 
         (&self.albedo, scattered)
@@ -346,7 +347,7 @@ impl Camera {
 
     fn get_ray(&self, u: f64, v: f64) -> Ray {
         Ray {
-            origin: &self.origin,
+            origin: self.origin.clone(),
             direction: self
                 .lower_left_corner
                 .add(&self.horizontal.scale(u))
@@ -369,7 +370,7 @@ fn ray_color<'a>(
             Some(hit) => {
                 let (attenuation, scattered) =
                     hit.material
-                        .scatter(rng, &hit.p, hit.normal, hit.front_face, r);
+                        .scatter(rng, hit.p, hit.normal, hit.front_face, r);
                 let c = ray_color(rng, remaining_bounces - 1, world, &scattered);
                 c.mul(attenuation)
             }
