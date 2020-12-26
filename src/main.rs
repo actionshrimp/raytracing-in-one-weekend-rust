@@ -98,11 +98,10 @@ impl Vec3 {
         self.sub(&normal.scale(2. * self.dot(normal)))
     }
 
-    fn refract(&self, normal: &Vec3, eta_before: f64, eta_after: f64) -> Vec3 {
+    fn refract(&self, normal: &Vec3, refraction_ratio: f64) -> Vec3 {
         let unit = self.unit();
-        let eta_ratio = eta_before / eta_after;
-        let cos_theta = f64::min(unit.scale(-1.).dot(&normal), 1.);
-        let r_out_perp = unit.add(&normal.scale(cos_theta)).scale(eta_ratio);
+        let cos_theta = f64::min((unit.scale(-1.)).dot(&normal), 1.);
+        let r_out_perp = unit.add(&normal.scale(cos_theta)).scale(refraction_ratio);
         let r_out_parallel = normal
             .scale((1. - r_out_perp.length_squared()).abs().sqrt())
             .scale(-1.);
@@ -222,26 +221,44 @@ impl Dielectric {
             albedo: Vec3::new(1., 1., 1.),
         }
     }
+
+    fn reflectance(cosine: f64, refraction_ratio: f64) -> f64 {
+        let r0 = (1. - refraction_ratio) / (1. + refraction_ratio);
+        let r0 = r0 * r0;
+        r0 + (1. - r0) * ((1. - cosine).powf(5.))
+    }
 }
 
 impl Material for Dielectric {
     fn scatter<'a>(
         &self,
-        _rng: &mut rand::prelude::ThreadRng,
+        rng: &mut rand::prelude::ThreadRng,
         pos: Vec3,
         normal: Vec3,
         front_face: bool,
         r: &Ray,
-        let (r_in, r_out) = if front_face {
-            (1., self.refractive_index)
     ) -> (&Color, Ray) {
+        let refraction_ratio = if front_face {
+            1. / self.refractive_index
         } else {
-            (self.refractive_index, 1.)
+            self.refractive_index
         };
 
+        let unit_direction = r.direction.unit();
+        let cos_theta = f64::min((unit_direction.scale(-1.)).dot(&normal), 1.);
+        let sin_theta = (1. - cos_theta * cos_theta).sqrt();
+
+        let cannot_refract = refraction_ratio * sin_theta > 1.;
+
         let scattered = Ray {
-            direction: r.direction.refract(&normal, r_in, r_out),
             origin: pos,
+            direction: if cannot_refract
+                || Dielectric::reflectance(cos_theta, refraction_ratio) > rng.gen()
+            {
+                unit_direction.reflect(&normal)
+            } else {
+                unit_direction.refract(&normal, refraction_ratio)
+            },
         };
 
         (&self.albedo, scattered)
@@ -401,7 +418,7 @@ fn main() {
 
     //world
     let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
-    let material_center = Dielectric::new(1.5);
+    let material_center = Lambertian::new(Vec3::new(0.1, 0.2, 0.5));
     let material_left = Dielectric::new(1.5);
     let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2), 1.0);
 
