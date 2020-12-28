@@ -270,7 +270,7 @@ struct Hit<'a> {
     normal: Vec3,
     t: f64,
     front_face: bool,
-    material: &'a (dyn Material + 'a),
+    material: &'a dyn Material,
 }
 
 trait Hittable {
@@ -280,7 +280,7 @@ trait Hittable {
 struct Sphere<'a> {
     x: Point,
     r: f64,
-    material: &'a (dyn Material + 'a),
+    material: &'a dyn Material,
 }
 
 impl<'a> Hittable for Sphere<'a> {
@@ -317,7 +317,7 @@ impl<'a> Hittable for Sphere<'a> {
     }
 }
 
-type World<'a> = Vec<&'a (dyn Hittable + 'a)>;
+type World<'a> = Vec<&'a dyn Hittable>;
 
 fn any_hit<'a>(world: &World<'a>, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit<'a>> {
     let mut ret: Option<Hit> = None;
