@@ -100,12 +100,32 @@ impl Vec3 {
 
     fn refract(&self, normal: &Vec3, refraction_ratio: f64) -> Vec3 {
         let unit = self.unit();
-        let cos_theta = f64::min((unit.scale(-1.)).dot(&normal), 1.);
+        let cos_theta = f64::min((-&unit).dot(&normal), 1.);
         let r_out_perp = unit.add(&normal.scale(cos_theta)).scale(refraction_ratio);
-        let r_out_parallel = normal
-            .scale((1. - r_out_perp.length_squared()).abs().sqrt())
-            .scale(-1.);
+        let r_out_parallel = -normal.scale((1. - r_out_perp.length_squared()).abs().sqrt());
         r_out_perp.add(&r_out_parallel)
+    }
+}
+
+impl std::ops::Neg for Vec3 {
+    type Output = Vec3;
+    fn neg(self) -> Vec3 {
+        Vec3 {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
+impl std::ops::Neg for &Vec3 {
+    type Output = Vec3;
+    fn neg(self) -> Vec3 {
+        Vec3 {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
     }
 }
 
@@ -245,7 +265,7 @@ impl Material for Dielectric {
         };
 
         let unit_direction = r.direction.unit();
-        let cos_theta = f64::min((unit_direction.scale(-1.)).dot(&normal), 1.);
+        let cos_theta = f64::min((-&unit_direction).dot(&normal), 1.);
         let sin_theta = (1. - cos_theta * cos_theta).sqrt();
 
         let cannot_refract = refraction_ratio * sin_theta > 1.;
@@ -307,7 +327,7 @@ impl<'a> Hittable for Sphere<'a> {
                     normal: if front_face {
                         outward_normal
                     } else {
-                        outward_normal.scale(-1.)
+                        -outward_normal
                     },
                     front_face: front_face,
                     material: self.material,
