@@ -32,24 +32,12 @@ impl Vec3 {
         Vec3 { x: x, y: y, z: z }
     }
 
-    fn scale(&self, t: f64) -> Vec3 {
-        Vec3::new(self.x * t, self.y * t, self.z * t)
-    }
-
-    fn add(&self, v: &Vec3) -> Vec3 {
-        Vec3::new(self.x + v.x, self.y + v.y, self.z + v.z)
-    }
-
-    fn sub(&self, v: &Vec3) -> Vec3 {
-        Vec3::new(self.x - v.x, self.y - v.y, self.z - v.z)
-    }
-
     fn mul(&self, v: &Vec3) -> Vec3 {
         Vec3::new(self.x * v.x, self.y * v.y, self.z * v.z)
     }
 
     fn write(&self, rgb_range: u16, samples_per_pixel: i8) -> () {
-        let scaled = self.scale(1. / (samples_per_pixel as f64));
+        let scaled = self / (samples_per_pixel as f64);
 
         let rgbf = rgb_range as f64;
 
@@ -69,8 +57,7 @@ impl Vec3 {
     }
 
     fn unit(&self) -> Vec3 {
-        let l = self.length();
-        self.scale(1.0 / l)
+        self / self.length()
     }
 
     fn dot(&self, v: &Vec3) -> f64 {
@@ -95,15 +82,15 @@ impl Vec3 {
     }
 
     fn reflect(&self, normal: &Vec3) -> Vec3 {
-        self.sub(&normal.scale(2. * self.dot(normal)))
+        self - (normal * 2. * self.dot(normal))
     }
 
     fn refract(&self, normal: &Vec3, refraction_ratio: f64) -> Vec3 {
         let unit = self.unit();
         let cos_theta = f64::min((-&unit).dot(&normal), 1.);
-        let r_out_perp = unit.add(&normal.scale(cos_theta)).scale(refraction_ratio);
-        let r_out_parallel = -normal.scale((1. - r_out_perp.length_squared()).abs().sqrt());
-        r_out_perp.add(&r_out_parallel)
+        let r_out_perp = (unit + normal * cos_theta) * refraction_ratio;
+        let r_out_parallel = -normal * (((1. - r_out_perp.length_squared()).abs()).sqrt());
+        r_out_perp + r_out_parallel
     }
 }
 
@@ -129,6 +116,171 @@ impl std::ops::Neg for &Vec3 {
     }
 }
 
+impl std::ops::Add<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn add(self, rhs: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl std::ops::Add<&Vec3> for Vec3 {
+    type Output = Vec3;
+    fn add(self, rhs: &Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl std::ops::Add<Vec3> for &Vec3 {
+    type Output = Vec3;
+    fn add(self, rhs: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl std::ops::Sub<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn sub(self, rhs: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+impl std::ops::Sub<&Vec3> for Vec3 {
+    type Output = Vec3;
+    fn sub(self, rhs: &Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+impl std::ops::Sub<Vec3> for &Vec3 {
+    type Output = Vec3;
+    fn sub(self, rhs: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+impl std::ops::Sub<&Vec3> for &Vec3 {
+    type Output = Vec3;
+    fn sub(self, rhs: &Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+impl std::ops::Mul<f64> for Vec3 {
+    type Output = Vec3;
+    fn mul(self, rhs: f64) -> Vec3 {
+        Vec3 {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
+
+impl std::ops::Mul<f64> for &Vec3 {
+    type Output = Vec3;
+    fn mul(self, rhs: f64) -> Vec3 {
+        Vec3 {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
+
+impl std::ops::Mul<Vec3> for f64 {
+    type Output = Vec3;
+    fn mul(self, rhs: Vec3) -> Vec3 {
+        Vec3 {
+            x: rhs.x * self,
+            y: rhs.y * self,
+            z: rhs.z * self,
+        }
+    }
+}
+
+impl std::ops::Mul<&Vec3> for f64 {
+    type Output = Vec3;
+    fn mul(self, rhs: &Vec3) -> Vec3 {
+        Vec3 {
+            x: rhs.x * self,
+            y: rhs.y * self,
+            z: rhs.z * self,
+        }
+    }
+}
+
+impl std::ops::Div<f64> for Vec3 {
+    type Output = Vec3;
+    fn div(self, rhs: f64) -> Vec3 {
+        Vec3 {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+        }
+    }
+}
+
+impl std::ops::Div<f64> for &Vec3 {
+    type Output = Vec3;
+    fn div(self, rhs: f64) -> Vec3 {
+        Vec3 {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+        }
+    }
+}
+
+impl std::ops::Div<Vec3> for f64 {
+    type Output = Vec3;
+    fn div(self, rhs: Vec3) -> Vec3 {
+        Vec3 {
+            x: rhs.x / self,
+            y: rhs.y / self,
+            z: rhs.z / self,
+        }
+    }
+}
+
+impl std::ops::Div<&Vec3> for f64 {
+    type Output = Vec3;
+    fn div(self, rhs: &Vec3) -> Vec3 {
+        Vec3 {
+            x: rhs.x / self,
+            y: rhs.y / self,
+            z: rhs.z / self,
+        }
+    }
+}
+
 type Point = Vec3;
 type Color = Vec3;
 
@@ -139,7 +291,7 @@ struct Ray {
 
 impl Ray {
     fn at(&self, t: f64) -> Vec3 {
-        self.origin.add(&self.direction.scale(t))
+        &self.origin + &self.direction * t
     }
 }
 
@@ -173,7 +325,7 @@ impl Material for Lambertian {
         _front_face: bool,
         _r: &Ray,
     ) -> (&Color, Ray) {
-        let d = normal.add(&Vec3::rand_unit_vector(rng));
+        let d = &normal + Vec3::rand_unit_vector(rng);
 
         let scatter_direction = if d.near_zero() { normal } else { d };
 
@@ -222,7 +374,7 @@ impl Material for Metal {
 
         let scattered = Ray {
             origin: pos,
-            direction: reflected.add(&Vec3::rand_in_unit_sphere(rng).scale(self.fuzz)),
+            direction: reflected + (Vec3::rand_in_unit_sphere(rng) * self.fuzz),
         };
 
         (&self.albedo, scattered)
@@ -265,20 +417,21 @@ impl Material for Dielectric {
         };
 
         let unit_direction = r.direction.unit();
-        let cos_theta = f64::min((-&unit_direction).dot(&normal), 1.);
+        let cos_theta = f64::min(-unit_direction.dot(&normal), 1.);
         let sin_theta = (1. - cos_theta * cos_theta).sqrt();
 
-        let cannot_refract = refraction_ratio * sin_theta > 1.;
+        let cannot_refract = (refraction_ratio * sin_theta) > 1.;
 
-        let scattered = Ray {
-            origin: pos,
-            direction: if cannot_refract
-                || Dielectric::reflectance(cos_theta, refraction_ratio) > rng.gen()
-            {
+        let direction =
+            if cannot_refract || Dielectric::reflectance(cos_theta, refraction_ratio) > rng.gen() {
                 unit_direction.reflect(&normal)
             } else {
                 unit_direction.refract(&normal, refraction_ratio)
-            },
+            };
+
+        let scattered = Ray {
+            origin: pos,
+            direction: direction,
         };
 
         (&self.albedo, scattered)
@@ -298,17 +451,17 @@ trait Hittable {
 }
 
 struct Sphere<'a> {
-    x: Point,
+    center: Point,
     r: f64,
     material: &'a dyn Material,
 }
 
 impl<'a> Hittable for Sphere<'a> {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<Hit> {
-        let oc = ray.origin.sub(&self.x);
-        let a = ray.direction.dot(&ray.direction);
+        let oc = &ray.origin - &self.center;
+        let a = ray.direction.length_squared();
         let half_b = oc.dot(&ray.direction);
-        let c = oc.dot(&oc) - self.r * self.r;
+        let c = oc.length_squared() - self.r * self.r;
         let discriminant = half_b * half_b - a * c;
         if discriminant < 0.0 {
             None
@@ -319,7 +472,7 @@ impl<'a> Hittable for Sphere<'a> {
                 None
             } else {
                 let p = ray.at(root);
-                let outward_normal = (p.sub(&self.x)).scale(1. / self.r);
+                let outward_normal = (&p - &self.center) / self.r;
                 let front_face = ray.direction.dot(&outward_normal) < 0.;
                 Some(Hit {
                     t: root,
@@ -368,10 +521,8 @@ impl Camera {
     fn new(origin: Vec3, width: f64, height: f64, focal_length: f64) -> Camera {
         let horizontal = Vec3::new(width, 0., 0.);
         let vertical = Vec3::new(0., height, 0.);
-        let lower_left_corner = origin
-            .sub(&horizontal.scale(1. / 2.))
-            .sub(&vertical.scale(1. / 2.))
-            .sub(&Vec3::new(0., 0., focal_length));
+        let lower_left_corner =
+            &origin - &horizontal / 2. - &vertical / 2. - Vec3::new(0., 0., focal_length);
 
         Camera {
             origin: origin,
@@ -382,13 +533,11 @@ impl Camera {
     }
 
     fn get_ray(&self, u: f64, v: f64) -> Ray {
+        let direction =
+            &self.lower_left_corner + &self.horizontal * u + &self.vertical * v - &self.origin;
         Ray {
+            direction: direction,
             origin: self.origin.clone(),
-            direction: self
-                .lower_left_corner
-                .add(&self.horizontal.scale(u))
-                .add(&self.vertical.scale(v))
-                .sub(&self.origin),
         }
     }
 }
@@ -413,10 +562,10 @@ fn ray_color<'a>(
             None => {
                 let u = r.direction.unit();
                 let t = 0.5 * (u.y + 1.0);
-                let v1 = Vec3::new(1.0, 1.0, 1.0).scale(1.0 - t);
-                let v2 = Vec3::new(0.5, 0.7, 1.0).scale(t);
+                let v1 = Vec3::new(1.0, 1.0, 1.0) * (1.0 - t);
+                let v2 = Vec3::new(0.5, 0.7, 1.0) * t;
 
-                v1.add(&v2)
+                v1 + v2
             }
         }
     }
@@ -443,25 +592,25 @@ fn main() {
     let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2), 1.0);
 
     let s1 = Sphere {
-        x: Vec3::new(0.0, -100.5, -1.0),
+        center: Vec3::new(0.0, -100.5, -1.0),
         r: 100.,
         material: &material_ground,
     };
 
     let s2 = Sphere {
-        x: Vec3::new(0.0, 0.0, -1.0),
+        center: Vec3::new(0.0, 0.0, -1.0),
         r: 0.5,
         material: &material_center,
     };
 
     let s3 = Sphere {
-        x: Vec3::new(-1.0, 0.0, -1.0),
+        center: Vec3::new(-1.0, 0.0, -1.0),
         r: 0.5,
         material: &material_left,
     };
 
     let s4 = Sphere {
-        x: Vec3::new(1.0, 0.0, -1.0),
+        center: Vec3::new(1.0, 0.0, -1.0),
         r: 0.5,
         material: &material_right,
     };
@@ -490,7 +639,7 @@ fn main() {
                 let v = (j as f64 + dv) / ((image_height - 1) as f64);
 
                 let ray = camera.get_ray(u, v);
-                pixel_color = pixel_color.add(&ray_color(&mut rng, max_bounces, &world, &ray));
+                pixel_color = pixel_color + ray_color(&mut rng, max_bounces, &world, &ray);
             }
 
             pixel_color.write(rgb_range, samples_per_pixel);
