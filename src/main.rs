@@ -464,28 +464,31 @@ impl<'a> Hittable for Sphere<'a> {
         let c = oc.length_squared() - self.r * self.r;
         let discriminant = half_b * half_b - a * c;
         if discriminant < 0.0 {
-            None
+            return None;
         } else {
             let sqrtd = discriminant.sqrt();
-            let root = (-half_b - sqrtd) / a;
+            let mut root = (-half_b - sqrtd) / a;
             if root < t_min || t_max < root {
-                None
-            } else {
-                let p = ray.at(root);
-                let outward_normal = (&p - &self.center) / self.r;
-                let front_face = ray.direction.dot(&outward_normal) < 0.;
-                Some(Hit {
-                    t: root,
-                    p: p,
-                    normal: if front_face {
-                        outward_normal
-                    } else {
-                        -outward_normal
-                    },
-                    front_face: front_face,
-                    material: self.material,
-                })
+                root = (-half_b + sqrtd) / a;
+                if root < t_min || t_max < root {
+                    return None;
+                }
             }
+
+            let p = ray.at(root);
+            let outward_normal = (&p - &self.center) / self.r;
+            let front_face = ray.direction.dot(&outward_normal) < 0.0;
+            Some(Hit {
+                t: root,
+                p: p,
+                normal: if front_face {
+                    outward_normal
+                } else {
+                    -outward_normal
+                },
+                front_face: front_face,
+                material: self.material,
+            })
         }
     }
 }
@@ -587,7 +590,7 @@ fn main() {
 
     //world
     let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
-    let material_center = Lambertian::new(Vec3::new(0.1, 0.2, 0.5));
+    let material_center = Dielectric::new(1.5);
     let material_left = Dielectric::new(1.5);
     let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2), 1.0);
 
