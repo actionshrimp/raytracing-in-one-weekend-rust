@@ -584,16 +584,10 @@ fn ray_color<'a>(
             None => {
                 let u = r.direction.unit();
                 let t = 0.5 * (u.y + 1.0);
-                let v1 = Vec3::new(0.7, 1.0, 1.0) * (1.0 - t);
+                let v1 = Vec3::new(1.0, 1.0, 1.0) * (1.0 - t);
                 let v2 = Vec3::new(0.5, 0.7, 1.0) * t;
 
-                let v3 = if t % 0.1 < 0.05 {
-                    Vec3::new(0.3, 0.0, 0.0)
-                } else {
-                    Vec3::new(0.0, 0.0, 0.0)
-                };
-
-                v1 + v2 + v3
+                v1 + v2
             }
         }
     }
