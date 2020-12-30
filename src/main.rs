@@ -2,6 +2,8 @@ use pbr::ProgressBar;
 use rand::Rng;
 use std::io::stderr;
 
+const pi: f64 = std::f64::consts::PI;
+
 #[derive(Clone)]
 struct Vec3 {
     x: f64,
@@ -521,9 +523,14 @@ struct Camera {
 }
 
 impl Camera {
-    fn new(origin: Vec3, width: f64, height: f64, focal_length: f64) -> Camera {
-        let horizontal = Vec3::new(width, 0., 0.);
-        let vertical = Vec3::new(0., height, 0.);
+    fn new(origin: Vec3, vfov: f64, aspect_ratio: f64, focal_length: f64) -> Camera {
+        let theta = vfov * pi / 180.;
+        let h = f64::tan(theta / 2.);
+        let viewport_height = 2. * h;
+        let viewport_width = aspect_ratio * viewport_height;
+
+        let horizontal = Vec3::new(viewport_width, 0., 0.);
+        let vertical = Vec3::new(0., viewport_height, 0.);
         let lower_left_corner =
             &origin - &horizontal / 2. - &vertical / 2. - Vec3::new(0., 0., focal_length);
 
@@ -582,11 +589,9 @@ fn main() {
     let samples_per_pixel = 100;
 
     //camera
-    let viewport_height = 2.0;
-    let viewport_width = aspect_ratio * viewport_height;
     let focal_length = 1.0;
     let origin = Vec3::new(0.0, 0.0, 0.0);
-    let camera = Camera::new(origin, viewport_width, viewport_height, focal_length);
+    let camera = Camera::new(origin, 90., aspect_ratio, focal_length);
 
     //world
     let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
