@@ -531,16 +531,20 @@ struct Camera {
 }
 
 impl Camera {
-    fn new(origin: Vec3, vfov: f64, aspect_ratio: f64, focal_length: f64) -> Camera {
+    fn new(look_from: Point, look_at: Point, vup: Vec3, vfov: f64, aspect_ratio: f64) -> Camera {
         let theta = vfov * PI / 180.;
         let h = f64::tan(theta / 2.);
         let viewport_height = 2. * h;
         let viewport_width = aspect_ratio * viewport_height;
 
-        let horizontal = Vec3::new(viewport_width, 0., 0.);
-        let vertical = Vec3::new(0., viewport_height, 0.);
-        let lower_left_corner =
-            &origin - &horizontal / 2. - &vertical / 2. - Vec3::new(0., 0., focal_length);
+        let w = (&look_from - look_at).unit();
+        let u = (vup.cross(&w)).unit();
+        let v = w.cross(&u);
+
+        let origin = look_from;
+        let horizontal = viewport_width * u;
+        let vertical = viewport_height * v;
+        let lower_left_corner = &origin - &horizontal / 2. - &vertical / 2. - w;
 
         Camera {
             origin: origin,
@@ -603,9 +607,13 @@ fn main() {
     let samples_per_pixel = 100;
 
     //camera
-    let focal_length = 1.0;
-    let origin = Vec3::new(0.0, 0.0, 0.0);
-    let camera = Camera::new(origin, 90., aspect_ratio, focal_length);
+    let camera = Camera::new(
+        Vec3::new(-2., 2., 1.),
+        Vec3::new(0., 0., -1.),
+        Vec3::new(0., 1., 0.),
+        20.,
+        aspect_ratio,
+    );
 
     //world
     let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
