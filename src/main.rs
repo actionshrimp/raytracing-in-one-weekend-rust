@@ -617,9 +617,9 @@ fn main() {
 
     //world
     let material_ground = Lambertian::new(Vec3::new(0.8, 0.8, 0.0));
-    let material_center = Dielectric::new(1.5);
+    let material_center = Lambertian::new(Vec3::new(0.1, 0.2, 0.5));
     let material_left = Dielectric::new(1.5);
-    let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2), 1.0);
+    let material_right = Metal::new(Vec3::new(0.8, 0.6, 0.2), 0.0);
 
     let s1 = Sphere {
         center: Vec3::new(0.0, -100.5, -1.0),
@@ -640,12 +640,18 @@ fn main() {
     };
 
     let s4 = Sphere {
+        center: Vec3::new(-1.0, 0.0, -1.0),
+        r: -0.45,
+        material: &material_left,
+    };
+
+    let s5 = Sphere {
         center: Vec3::new(1.0, 0.0, -1.0),
         r: 0.5,
         material: &material_right,
     };
 
-    let world: World = vec![&s1, &s2, &s3, &s4];
+    let world: World = vec![&s1, &s2, &s3, &s4, &s5];
 
     let total_steps = image_height as u64;
     let mut pb = ProgressBar::on(stderr(), total_steps);
