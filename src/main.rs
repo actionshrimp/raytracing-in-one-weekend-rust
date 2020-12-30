@@ -66,6 +66,14 @@ impl Vec3 {
         self.x * v.x + self.y * v.y + self.z * v.z
     }
 
+    fn cross(&self, v: &Vec3) -> Vec3 {
+        Vec3 {
+            x: self.y * v.z - self.z * v.y,
+            y: self.z * v.x - self.x * v.z,
+            z: self.x * v.y - self.y * v.x,
+        }
+    }
+
     fn rand_in_unit_sphere(rng: &mut rand::prelude::ThreadRng) -> Vec3 {
         let mut test = Vec3::new(rng.gen(), rng.gen(), rng.gen());
         while test.length_squared() >= 1. {
