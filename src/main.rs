@@ -2,7 +2,7 @@ use pbr::ProgressBar;
 use rand::Rng;
 use std::io::stderr;
 
-const pi: f64 = std::f64::consts::PI;
+const PI: f64 = std::f64::consts::PI;
 
 #[derive(Clone)]
 struct Vec3 {
@@ -524,7 +524,7 @@ struct Camera {
 
 impl Camera {
     fn new(origin: Vec3, vfov: f64, aspect_ratio: f64, focal_length: f64) -> Camera {
-        let theta = vfov * pi / 180.;
+        let theta = vfov * PI / 180.;
         let h = f64::tan(theta / 2.);
         let viewport_height = 2. * h;
         let viewport_width = aspect_ratio * viewport_height;
