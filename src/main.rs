@@ -75,9 +75,17 @@ impl Vec3 {
     }
 
     fn rand_in_unit_sphere(rng: &mut rand::prelude::ThreadRng) -> Vec3 {
-        let mut test = Vec3::new(rng.gen(), rng.gen(), rng.gen());
+        let mut test = Vec3::new(
+            rng.gen_range(-1.0..=1.0),
+            rng.gen_range(-1.0..=1.0),
+            rng.gen_range(-1.0..=1.0),
+        );
         while test.length_squared() >= 1. {
-            test = Vec3::rand_in_unit_sphere(rng)
+            test = Vec3::new(
+                rng.gen_range(-1.0..=1.0),
+                rng.gen_range(-1.0..=1.0),
+                rng.gen_range(-1.0..=1.0),
+            )
         }
         test
     }
