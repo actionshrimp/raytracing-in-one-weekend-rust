@@ -94,6 +94,14 @@ impl Vec3 {
         Vec3::rand_in_unit_sphere(rng).unit()
     }
 
+    fn rand_in_unit_disk(rng: &mut rand::prelude::ThreadRng) -> Vec3 {
+        let mut test = Vec3::new(rng.gen_range(-1.0..=1.0), rng.gen_range(-1.0..=1.0), 0.);
+        while test.length_squared() >= 1. {
+            test = Vec3::new(rng.gen_range(-1.0..=1.0), rng.gen_range(-1.0..=1.0), 0.)
+        }
+        test
+    }
+
     fn near_zero(&self) -> bool {
         let s: f64 = 1e-8;
         self.x.abs() < s && self.y.abs() < s && self.z.abs() < s
@@ -536,10 +544,22 @@ struct Camera {
     lower_left_corner: Point,
     horizontal: Vec3,
     vertical: Vec3,
+    lens_radius: f64,
+    u: Vec3,
+    v: Vec3,
+    w: Vec3,
 }
 
 impl Camera {
-    fn new(look_from: Point, look_at: Point, vup: Vec3, vfov: f64, aspect_ratio: f64) -> Camera {
+    fn new(
+        look_from: Point,
+        look_at: Point,
+        vup: Vec3,
+        vfov: f64,
+        aspect_ratio: f64,
+        aperture: f64,
+        focus_dist: f64,
+    ) -> Camera {
         let theta = vfov * PI / 180.;
         let h = f64::tan(theta / 2.);
         let viewport_height = 2. * h;
@@ -547,27 +567,36 @@ impl Camera {
 
         let w = (&look_from - look_at).unit();
         let u = (vup.cross(&w)).unit();
-        let v = w.cross(&u);
+        let v = (&w).cross(&u);
 
         let origin = look_from;
-        let horizontal = viewport_width * u;
-        let vertical = viewport_height * v;
-        let lower_left_corner = &origin - &horizontal / 2. - &vertical / 2. - w;
+        let horizontal = focus_dist * viewport_width * &u;
+        let vertical = focus_dist * viewport_height * &v;
+        let lower_left_corner = &origin - &horizontal / 2. - &vertical / 2. - focus_dist * &w;
+
+        let lens_radius = aperture / 2.;
 
         Camera {
             origin: origin,
             lower_left_corner: lower_left_corner,
             horizontal: horizontal,
             vertical: vertical,
+            lens_radius: lens_radius,
+            u: u,
+            v: v,
+            w: w,
         }
     }
 
-    fn get_ray(&self, u: f64, v: f64) -> Ray {
-        let direction =
-            &self.lower_left_corner + &self.horizontal * u + &self.vertical * v - &self.origin;
+    fn get_ray(&self, rng: &mut rand::prelude::ThreadRng, s: f64, t: f64) -> Ray {
+        let rd = self.lens_radius * Vec3::rand_in_unit_disk(rng);
+        let offset = &self.u * rd.x + &self.v * rd.y;
+
         Ray {
-            direction: direction,
-            origin: self.origin.clone(),
+            origin: self.origin.clone() + &offset,
+            direction: &self.lower_left_corner + &self.horizontal * s + &self.vertical * t
+                - &self.origin
+                - &offset,
         }
     }
 }
@@ -603,18 +632,27 @@ fn ray_color<'a>(
 
 fn main() {
     let aspect_ratio: f64 = 16.0 / 9.0;
-    let image_width: u16 = 400;
+    let image_width: u16 = 1200;
     let image_height: u16 = (image_width as f64 / aspect_ratio) as u16;
     let rgb_range = 256;
     let samples_per_pixel = 100;
 
+    let look_from = Vec3::new(3., 3., 2.);
+    let look_at = Vec3::new(0., 0., -1.);
+    let vup = Vec3::new(0., 1., 0.);
+    let fov = 20.;
+    let aperture = 2.;
+    let dist_to_focus = (&look_from - &look_at).length();
+
     //camera
     let camera = Camera::new(
-        Vec3::new(-2., 2., 1.),
-        Vec3::new(0., 0., -1.),
-        Vec3::new(0., 1., 0.),
-        20.,
+        look_from,
+        look_at,
+        vup,
+        fov,
         aspect_ratio,
+        aperture,
+        dist_to_focus,
     );
 
     //world
@@ -673,10 +711,10 @@ fn main() {
                 let du: f64 = rng.gen();
                 let dv: f64 = rng.gen();
 
-                let u = (i as f64 + du) / ((image_width - 1) as f64);
-                let v = (j as f64 + dv) / ((image_height - 1) as f64);
+                let s = (i as f64 + du) / ((image_width - 1) as f64);
+                let t = (j as f64 + dv) / ((image_height - 1) as f64);
 
-                let ray = camera.get_ray(u, v);
+                let ray = camera.get_ray(&mut rng, s, t);
                 pixel_color = pixel_color + ray_color(&mut rng, max_bounces, &world, &ray);
             }
 
